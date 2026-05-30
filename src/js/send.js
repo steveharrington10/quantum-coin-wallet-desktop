@@ -126,14 +126,14 @@ async function signOfflineSend() {
         CoinTokenToSendName = "coins";
     } else {
         let contractAddress = document.getElementById("txtTokenContractAddress").value;
-        if (contractAddress == null || contractAddress.length < ADDRESS_LENGTH_CHECK || IsValidAddress(contractAddress) == false) {
+        if (contractAddress == null || contractAddress.length < ADDRESS_LENGTH_CHECK || await IsValidAddress(contractAddress) == false) {
             showWarnAlert(langJson.errors.quantumAddr);
             return false;
         }
         CoinTokenToSendName = "tokens";
     }
 
-    if (sendAddress == null || sendAddress.length < ADDRESS_LENGTH_CHECK || IsValidAddress(sendAddress) == false) {
+    if (sendAddress == null || sendAddress.length < ADDRESS_LENGTH_CHECK || await IsValidAddress(sendAddress) == false) {
         showWarnAlert(langJson.errors.quantumAddr);
         return false;
     }
@@ -200,49 +200,30 @@ async function signOfflineTxnSendToken(quantumWallet) {
     var sendAddress = document.getElementById("txtSendAddress").value;
     var sendQuantity = document.getElementById("txtSendQuantity").value;
     var currentNonce = document.getElementById("txtCurrentNonce").value;
-    var coinQuantity = "0";
     var contractAddress = document.getElementById("txtTokenContractAddress").value;
 
-    let gas = TOKEN_SEND_GAS;
-
     try {
-        const chainId = currentBlockchainNetwork.networkId;
-        const nonce = parseInt(currentNonce);
-        let sendData = getTokenTransferContractData(sendAddress, sendQuantity);
+        var result = await offlineSignTokenTransaction({
+            chainId: parseInt(currentBlockchainNetwork.networkId, 10),
+            toAddress: sendAddress,
+            amount: sendQuantity,
+            contractAddress: contractAddress,
+            fromDecimals: getSwapTokenDecimals(contractAddress),
+            nonce: parseInt(currentNonce),
+            gasLimit: TOKEN_SEND_GAS,
+            privateKey: await quantumWallet.getPrivateKey(),
+            publicKey: await quantumWallet.getPublicKey(),
+            advancedSigningEnabled: await advancedSigningGetDefaultValue()
+        });
 
-        var txSigningHash = transactionGetSigningHash(quantumWallet.address, nonce, contractAddress, coinQuantity, gas, chainId, sendData)
-        if (txSigningHash == null) {
+        if (!result || !result.success || !result.txData) {
             hideWaitingBox();
-            showWarnAlert(langJson.errors.unexpectedError);
-            return;
-        }
-
-        var quantumSig = walletSign(quantumWallet, txSigningHash);
-
-        var verifyResult = cryptoVerify(txSigningHash, quantumSig, base64ToBytes(quantumWallet.getPublicKey()));
-        if (verifyResult == false) {
-            hideWaitingBox();
-            return;
-        }
-
-        var txHashHex = transactionGetTransactionHash(quantumWallet.address, nonce, contractAddress, coinQuantity, gas, chainId, sendData,
-            base64ToBytes(quantumWallet.getPublicKey()), quantumSig);
-        if (txHashHex == null) {
-            hideWaitingBox();
-            showWarnAlert(langJson.errors.unexpectedError);
-            return;
-        }
-
-        //account txn data
-        var txData = transactionGetData(quantumWallet.address, nonce, contractAddress, coinQuantity, gas, chainId, sendData, base64ToBytes(quantumWallet.getPublicKey()), quantumSig);
-        if (txData == null) {
-            hideWaitingBox();
-            showWarnAlert(langJson.errors.unexpectedError);
+            showWarnAlert((result && result.error) ? String(result.error) : (langJson.errors.unexpectedError));
             return;
         }
 
         hideWaitingBox();
-        document.getElementById('txtSignedSendTransaction').value = txData;
+        document.getElementById('txtSignedSendTransaction').value = result.txData;
         document.getElementById('SendScreen').style.display = "none";
         document.getElementById('OfflineSignScreen').style.display = "block";
     }
@@ -266,45 +247,25 @@ async function signOfflineTxnSend(quantumWallet) {
     var currentNonce = document.getElementById("txtCurrentNonce").value;
 
     try {
-        const gas = COIN_SEND_GAS;
-        const chainId = currentBlockchainNetwork.networkId;
-        const nonce = parseInt(currentNonce);
-        const contractData = null;
+        var result = await offlineSignCoinTransaction({
+            chainId: parseInt(currentBlockchainNetwork.networkId, 10),
+            toAddress: sendAddress,
+            amount: sendQuantity,
+            nonce: parseInt(currentNonce),
+            gasLimit: COIN_SEND_GAS,
+            privateKey: await quantumWallet.getPrivateKey(),
+            publicKey: await quantumWallet.getPublicKey(),
+            advancedSigningEnabled: await advancedSigningGetDefaultValue()
+        });
 
-        var txSigningHash = transactionGetSigningHash(quantumWallet.address, nonce, sendAddress, sendQuantity, gas, chainId, contractData)
-        if (txSigningHash == null) {
+        if (!result || !result.success || !result.txData) {
             hideWaitingBox();
-            showWarnAlert(langJson.errors.unexpectedError);
-            return;
-        }
-
-        var quantumSig = walletSign(quantumWallet, txSigningHash);
-
-        var verifyResult = cryptoVerify(txSigningHash, quantumSig, base64ToBytes(quantumWallet.getPublicKey()));
-        if (verifyResult == false) {
-            hideWaitingBox();
-            return;
-        }
-
-        var txHashHex = transactionGetTransactionHash(quantumWallet.address, nonce, sendAddress, sendQuantity, gas, chainId, contractData,
-            base64ToBytes(quantumWallet.getPublicKey()), quantumSig);
-        if (txHashHex == null) {
-            hideWaitingBox();
-            showWarnAlert(langJson.errors.unexpectedError);
-            return;
-        }
-
-        //account txn data
-        let currentDate = new Date();
-        var txData = transactionGetData(quantumWallet.address, nonce, sendAddress, sendQuantity, gas, chainId, contractData, base64ToBytes(quantumWallet.getPublicKey()), quantumSig);
-        if (txData == null) {
-            hideWaitingBox();
-            showWarnAlert(langJson.errors.unexpectedError);
+            showWarnAlert((result && result.error) ? String(result.error) : (langJson.errors.unexpectedError));
             return;
         }
 
         hideWaitingBox();
-        document.getElementById('txtSignedSendTransaction').value = txData;
+        document.getElementById('txtSignedSendTransaction').value = result.txData;
         document.getElementById('SendScreen').style.display = "none";
         document.getElementById('OfflineSignScreen').style.display = "block";
     }
@@ -332,7 +293,7 @@ async function sendCoins() {
     var contractAddress = document.getElementById("divCoinTokenToSend").textContent;
     let quantityToSend = "";
 
-    if (sendAddress == null || sendAddress.length < ADDRESS_LENGTH_CHECK || IsValidAddress(sendAddress) == false) {
+    if (sendAddress == null || sendAddress.length < ADDRESS_LENGTH_CHECK || await IsValidAddress(sendAddress) == false) {
         showWarnAlert(langJson.errors.quantumAddr);
         return false;
     }
@@ -414,60 +375,31 @@ async function sendCoinsSubmit(quantumWallet) {
     var sendQuantity = document.getElementById("txtSendQuantity").value;
 
     try {
-        //get account balance
-        currentAccountDetails = null;
-        let accountDetails = await getAccountDetails(currentBlockchainNetwork.scanApiDomain, currentWalletAddress);
-        currentAccountDetails = accountDetails;
-
-        const gas = COIN_SEND_GAS;
-        const chainId = currentBlockchainNetwork.networkId;
-        const nonce = accountDetails.nonce;
-        const contractData = null;
-
-        var txSigningHash = transactionGetSigningHash(quantumWallet.address, nonce, sendAddress, sendQuantity, gas, chainId, contractData)
-        if (txSigningHash == null) {
-            hideWaitingBox();
-            showWarnAlert(langJson.errors.unexpectedError);
-            return;
-        }
-
-        var quantumSig = walletSign(quantumWallet, txSigningHash);
-
-        var verifyResult = cryptoVerify(txSigningHash, quantumSig, base64ToBytes(quantumWallet.getPublicKey()));
-        if (verifyResult == false) {
-            return;
-        }
-
-        var txHashHex = transactionGetTransactionHash(quantumWallet.address, nonce, sendAddress, sendQuantity, gas, chainId, contractData,
-            base64ToBytes(quantumWallet.getPublicKey()), quantumSig);
-        if (txHashHex == null) {
-            hideWaitingBox();
-            showWarnAlert(langJson.errors.unexpectedError);
-            return;
-        }
-
-        //account txn data
         let currentDate = new Date();
-        var txData = transactionGetData(quantumWallet.address, nonce, sendAddress, sendQuantity, gas, chainId, contractData, base64ToBytes(quantumWallet.getPublicKey()), quantumSig);
-        if (txData == null) {
+        var result = await submitSendCoins({
+            rpcEndpoint: currentBlockchainNetwork.rpcEndpoint,
+            chainId: parseInt(currentBlockchainNetwork.networkId, 10),
+            toAddress: sendAddress,
+            amount: sendQuantity,
+            privateKey: await quantumWallet.getPrivateKey(),
+            publicKey: await quantumWallet.getPublicKey(),
+            gasLimit: COIN_SEND_GAS,
+            advancedSigningEnabled: await advancedSigningGetDefaultValue()
+        });
+
+        if (!result || !result.success || !result.txHash) {
             hideWaitingBox();
-            showWarnAlert(langJson.errors.unexpectedError);
+            showWarnAlert((result && result.error) ? String(result.error) : (langJson.errors.invalidApiResponse));
             return;
         }
 
-        let result = await postTransaction(currentBlockchainNetwork.txnApiDomain, txData);
-        if (result == true) {
-            let pendingTxn = new TransactionDetails(txHashHex, currentDate, quantumWallet.address, sendAddress, sendQuantity, true);
-            pendingTransactionsMap.set(quantumWallet.address.toLowerCase() + currentBlockchainNetwork.index.toString(), pendingTxn);
+        let pendingTxn = new TransactionDetails(result.txHash, currentDate, quantumWallet.address, sendAddress, sendQuantity, true);
+        pendingTransactionsMap.set(quantumWallet.address.toLowerCase() + currentBlockchainNetwork.index.toString(), pendingTxn);
 
-            setTimeout(() => {
-                hideWaitingBox();
-                showAlertAndExecuteOnClose(langJson.langValues.sendRequest.replace(TRANSACTION_HASH_TEMPLATE, txHashHex), showWalletScreen);
-            }, 1000);
-        } else {
+        setTimeout(() => {
             hideWaitingBox();
-            showWarnAlert(langJson.errors.invalidApiResponse);
-        }
+            showAlertAndExecuteOnClose(langJson.langValues.sendRequest.replace(TRANSACTION_HASH_TEMPLATE, result.txHash), showWalletScreen);
+        }, 1000);
     }
     catch (error) {
         hideWaitingBox();
@@ -484,65 +416,37 @@ async function sendTokensSubmit(quantumWallet) {
     updateWaitingBox(langJson.langValues.pleaseWaitSubmit);
 
     try {
-        //get account balance
-        currentAccountDetails = null;
-        let accountDetails = await getAccountDetails(currentBlockchainNetwork.scanApiDomain, currentWalletAddress);
-        currentAccountDetails = accountDetails;
-
         var sendAddress = document.getElementById("txtSendAddress").value;
         var sendQuantity = document.getElementById("txtSendQuantity").value;
-        var coinQuantity = "0";
         var contractAddress = document.getElementById("divCoinTokenToSend").textContent;
 
-        let gas = TOKEN_SEND_GAS;
-        const chainId = currentBlockchainNetwork.networkId;
-        const nonce = accountDetails.nonce;
-        let sendData = getTokenTransferContractData(sendAddress, sendQuantity);
-
-        var txSigningHash = transactionGetSigningHash(quantumWallet.address, nonce, contractAddress, coinQuantity, gas, chainId, sendData)
-        if (txSigningHash == null) {
-            hideWaitingBox();
-            showWarnAlert(langJson.errors.unexpectedError);
-            return;
-        }
-
-        var quantumSig = walletSign(quantumWallet, txSigningHash);
-
-        var verifyResult = cryptoVerify(txSigningHash, quantumSig, base64ToBytes(quantumWallet.getPublicKey()));
-        if (verifyResult == false) {
-            return;
-        }
-
-        var txHashHex = transactionGetTransactionHash(quantumWallet.address, nonce, contractAddress, coinQuantity, gas, chainId, sendData,
-            base64ToBytes(quantumWallet.getPublicKey()), quantumSig);
-        if (txHashHex == null) {
-            hideWaitingBox();
-            showWarnAlert(langJson.errors.unexpectedError);
-            return;
-        }
-
-        //account txn data
         let currentDate = new Date();
-        var txData = transactionGetData(quantumWallet.address, nonce, contractAddress, coinQuantity, gas, chainId, sendData, base64ToBytes(quantumWallet.getPublicKey()), quantumSig);
-        if (txData == null) {
+        var result = await submitSendTokens({
+            rpcEndpoint: currentBlockchainNetwork.rpcEndpoint,
+            chainId: parseInt(currentBlockchainNetwork.networkId, 10),
+            toAddress: sendAddress,
+            amount: sendQuantity,
+            contractAddress: contractAddress,
+            fromDecimals: getSwapTokenDecimals(contractAddress),
+            privateKey: await quantumWallet.getPrivateKey(),
+            publicKey: await quantumWallet.getPublicKey(),
+            gasLimit: TOKEN_SEND_GAS,
+            advancedSigningEnabled: await advancedSigningGetDefaultValue()
+        });
+
+        if (!result || !result.success || !result.txHash) {
             hideWaitingBox();
-            showWarnAlert(langJson.errors.unexpectedError);
+            showWarnAlert((result && result.error) ? String(result.error) : (langJson.errors.invalidApiResponse));
             return;
         }
 
-        let result = await postTransaction(currentBlockchainNetwork.txnApiDomain, txData);
-        if (result == true) {
-            let pendingTxn = new TransactionDetails(txHashHex, currentDate, quantumWallet.address, contractAddress, coinQuantity, true);
-            pendingTransactionsMap.set(quantumWallet.address.toLowerCase() + currentBlockchainNetwork.index.toString(), pendingTxn);
+        let pendingTxn = new TransactionDetails(result.txHash, currentDate, quantumWallet.address, contractAddress, "0", true);
+        pendingTransactionsMap.set(quantumWallet.address.toLowerCase() + currentBlockchainNetwork.index.toString(), pendingTxn);
 
-            setTimeout(() => {
-                hideWaitingBox();
-                showAlertAndExecuteOnClose(langJson.langValues.sendRequest.replace(TRANSACTION_HASH_TEMPLATE, txHashHex), showWalletScreen);
-            }, 1000);
-        } else {
+        setTimeout(() => {
             hideWaitingBox();
-            showWarnAlert(langJson.errors.invalidApiResponse);
-        }
+            showAlertAndExecuteOnClose(langJson.langValues.sendRequest.replace(TRANSACTION_HASH_TEMPLATE, result.txHash), showWalletScreen);
+        }, 1000);
     }
     catch (error) {
         hideWaitingBox();

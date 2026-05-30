@@ -26,7 +26,7 @@ button, input[type="submit"], input[type="reset"] {
 .gradient {
     width: 100%;
     height: 116px;
-    background: linear-gradient(90deg, rgba(66, 16, 150, 0.50) 0%, rgba(89, 214, 242, 0.25) 24%, rgba(236, 107, 124, 0.15) 49%, rgba(181, 73, 140, 0.05) 76%, rgba(144, 54, 144, 0.05) 100%);
+    background: black;
     box-shadow: 5px 5px 7px rgba(0, 0, 0, 0.3);
 }
 
@@ -336,6 +336,21 @@ button, input[type="submit"], input[type="reset"] {
         transform: translateY(-2px);
         background-size: 30px 30px;
     }
+
+.copy-container-small {
+    width: 15px;
+    height: 15px;
+    background-size: 15px 15px;
+}
+
+.copy-container-small:hover,
+.copy-container-small:focus {
+    background-size: 15px 15px;
+}
+
+.copy-container-small:active {
+    background-size: 15px 15px;
+}
 
 .refresh-container {
     width: 30px;
@@ -816,8 +831,7 @@ button, input[type="submit"], input[type="reset"] {
     }
 
 .animate-character {
-    text-transform: uppercase;
-    background-image: linear-gradient( -225deg, #231557 2%, #44107a 29%, #ff1361 47%, #5f00ff 100% );
+    background-image: linear-gradient( -225deg, #ffffff 2%, #ffffff 29%, #000000 47%, #ececec 100% );
     background-size: auto auto;
     background-clip: border-box;
     background-size: 200% auto;
@@ -1281,12 +1295,17 @@ select {
 }
 
 .buttonBox {
-    width: calc(100% / 3);
+    width: calc(100% / 4);
     display: flex;
     flex-direction: column;
     margin-top: 4px;
     cursor: pointer;
     color: #372339;
+}
+
+.button-swap {
+    background: #7C3AED !important;
+    box-shadow: 5px 5px 7px rgba(0, 0, 0, 0.3);
 }
 
     .buttonBox:hover,
@@ -1355,7 +1374,7 @@ select {
     }
 
 .networkbox {
-    color: #000000;
+    color: #d1bbbb;
     font-size: 12px;
     letter-spacing: 0.1em;
     font-weight: bold;

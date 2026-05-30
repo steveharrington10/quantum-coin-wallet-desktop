@@ -19,20 +19,20 @@ class Wallet {
         this.seed = seed;
     }
 
-    getPrivateKey() {
+    async getPrivateKey() {
         if (this.privateKey == null) {
             let seedArray = base64ToBytes(this.seed);
-            let keyPair = walletKeyPairFromSeed(seedArray);
+            let keyPair = await walletKeyPairFromSeed(seedArray);
             return keyPair.privateKey;
         } else {
             return this.privateKey;
         }
     }
 
-    getPublicKey() {
+    async getPublicKey() {
         if (this.publicKey == null) {
             let seedArray = base64ToBytes(this.seed);
-            let keyPair = walletKeyPairFromSeed(seedArray);
+            let keyPair = await walletKeyPairFromSeed(seedArray);
             return keyPair.publicKey;
         } else {
             return this.publicKey;
@@ -51,12 +51,8 @@ function isNumber(value) {
     return typeof value === 'number' && isFinite(value);
 }
 
-function walletGetAccountAddress(publicKeyArray) {
-    const typedPkArray = new Uint8Array(publicKeyArray.length);
-    for (let i = 0; i < publicKeyArray.length; i++) {
-        typedPkArray[i] = publicKeyArray[i];
-    }
-    let address = PublicKeyToAddress(typedPkArray);
+async function walletGetAccountAddress(publicKeyBase64) {
+    let address = await computeAddressFromPublicKey(publicKeyBase64);
     return address;
 }
 
@@ -79,49 +75,36 @@ async function walletGetMaxIndex() {
     return maxWalletIndex;
 }
 
-function walletKeyPairFromSeed(seedArray) {
-    if (seedArray.length != CRYPTO_SEED_BYTES) {
-        throw new Error('walletKeyPairFromSeed seed array length is not CRYPTO_SEED_BYTES.');
+async function walletKeyPairFromSeed(seedArray) {
+    const allowedLengths = [64, 72, 96];
+    if (!allowedLengths.includes(seedArray.length)) {
+        throw new Error('walletKeyPairFromSeed: unsupported seed length.');
     }
 
-    let expandedSeedArray = cryptoExpandSeed(seedArray);
-    let keyPair = cryptoNewKeyPairFromSeed(expandedSeedArray);
-    return keyPair;
+    let result = await walletFromSeed(seedArray);
+    return { privateKey: result.privateKey, publicKey: result.publicKey };
 }
 
 async function walletCreateNewWalletFromSeed(seedArray) {
-    let keyPair = walletKeyPairFromSeed(seedArray);
-    let publicKeyArray = base64ToBytes(keyPair.publicKey);
-    let address = walletGetAccountAddress(publicKeyArray);
+    let result = await walletFromSeed(seedArray);
     let seedString = bytesToBase64(seedArray);
-    let wallet = new Wallet(address, null, null, seedString); //store only address and seed. keys can be generated dynamically
+    let wallet = new Wallet(result.address, null, null, seedString);
     return wallet;
 }
 
 async function walletCreateNewWallet() {
-    let seedArray = cryptoNewSeed();
+    let seedArray = await cryptoNewSeed();
     let wallet = await walletCreateNewWalletFromSeed(seedArray);
     return wallet;
 }
 
-function walletCreateNewWalletFromJson(walletJsonString, passphrase) {
-    let keyPairString = JsonToWalletKeyPair(walletJsonString, passphrase);
-    if (keyPairString == null) {
-        throw new Error('walletCreateNewWalletFromJson JsonToWalletKeyPair failed');
-    }
-    let keyPairSplit = keyPairString.split(",");
-    let privateKeyArray = base64ToBytes(keyPairSplit[0]);
-    let publicKeyArray = base64ToBytes(keyPairSplit[1]);
-    let walletJsonCheckString = walletGetAccountJson(privateKeyArray, publicKeyArray, passphrase);
-
-    let walletJson1 = JSON.parse(walletJsonString);
-    let walletJson2 = JSON.parse(walletJsonCheckString);
-
-    if (walletJson1.address.toLowerCase() != walletJson2.address.toLowerCase()) {
-        throw new Error('walletCreateNewWalletFromJson address check failed');
+async function walletCreateNewWalletFromJson(walletJsonString, passphrase) {
+    let result = await walletDecryptJson(walletJsonString, passphrase);
+    if (result == null) {
+        throw new Error('walletCreateNewWalletFromJson walletDecryptJson failed');
     }
 
-    let wallet = new Wallet(walletJson1.address, keyPairSplit[0], keyPairSplit[1], null);
+    let wallet = new Wallet(result.address, result.privateKey, result.publicKey, null);
     return wallet;
 }
 
@@ -246,39 +229,12 @@ function walletDoesAddressExistInCache(address) {
     return WALLET_ADDRESS_TO_INDEX_MAP.has(address.toLowerCase());
 }
 
-function walletGetAccountJsonFromWallet(wallet, passphrase) {
-    let privateKey = wallet.getPrivateKey();
-    let publicKey = wallet.getPublicKey();
-    let privateKeyArray = base64ToBytes(privateKey);
-    let publicKeyArray = base64ToBytes(publicKey);
-    return walletGetAccountJson(privateKeyArray, publicKeyArray, passphrase);
+async function walletGetAccountJsonFromWallet(wallet, passphrase) {
+    let privateKey = await wallet.getPrivateKey();
+    let publicKey = await wallet.getPublicKey();
+    return await walletEncryptJson(privateKey, publicKey, passphrase);
 }
 
-function walletGetAccountJson(privateKeyArray, publicKeyArray, passphrase) {
-    const typedSkArray = new Uint8Array(privateKeyArray.length);
-    for (let i = 0; i < privateKeyArray.length; i++) {
-        typedSkArray[i] = privateKeyArray[i];
-    }
-    
-    const typedPkArray = new Uint8Array(publicKeyArray.length);
-    for (let i = 0; i < publicKeyArray.length; i++) {
-        typedPkArray[i] = publicKeyArray[i];
-    }
-
-    let walletJsonString = KeyPairToWalletJson(privateKeyArray, publicKeyArray, passphrase);
-
-    let address = walletGetAccountAddress(publicKeyArray);
-
-    let walletJson = JSON.parse(walletJsonString);
-    let addressCheck = "0x" + walletJson.address;
-    if (addressCheck.toLowerCase() != address.toLowerCase()) {
-        return null;
-    }
-
-    return walletJsonString;
-}
-
-function walletSign(wallet, msgArray) {
-    var signature = cryptoSign(msgArray, base64ToBytes(wallet.getPrivateKey()));
-    return signature;
+async function walletGetAccountJson(privateKeyBase64, publicKeyBase64, passphrase) {
+    return await walletEncryptJson(privateKeyBase64, publicKeyBase64, passphrase);
 }

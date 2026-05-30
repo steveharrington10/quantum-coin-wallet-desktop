@@ -2,6 +2,12 @@ const HTTPS = "https://";
 const HTTP = "http://";
 const ADDRESS_LENGTH_CHECK = 64
 
+// Use HTTP for localhost or any IP address; HTTPS for other domains
+const isHttpAllowedDomain = (domain) => {
+    if (domain.startsWith("localhost:")) return true;
+    return /^(\d{1,3}\.){3}\d{1,3}(:[0-9]{1,5})?$/.test(domain);
+};
+
 class AccountDetails {
     constructor(address, nonce, balance) {
         if (address.startsWith("0x") == false) {
@@ -35,7 +41,7 @@ class AccountTokenDetails {
 
 async function getAccountDetails(scanApiDomain, address) {
     let url = HTTPS;
-    if(scanApiDomain.startsWith("localhost:")) {
+    if(isHttpAllowedDomain(scanApiDomain)) {
         url = HTTP;
     }
     url = url + scanApiDomain + "/account/" + address;
@@ -80,7 +86,7 @@ async function getPendingTransactionDetails(scanApiDomain, address, pageIndex) {
 
 async function getTransactionDetails(scanApiDomain, address, pageIndex, isPending) {
     let url = HTTPS;
-    if(scanApiDomain.startsWith("localhost:")) {
+    if(isHttpAllowedDomain(scanApiDomain)) {
         url = HTTP;
     }
 
@@ -125,13 +131,13 @@ async function getTransactionDetails(scanApiDomain, address, pageIndex, isPendin
     for (var i = 0; i < result.items.length; i++) {
         let txn = result.items[i];
 
-        if (txn.hash == null || txn.hash.length < ADDRESS_LENGTH_CHECK || IsValidAddress(txn.hash) == false) {
+        if (txn.hash == null || txn.hash.length < ADDRESS_LENGTH_CHECK || await IsValidAddress(txn.hash) == false) {
             throw new Error("invalid hash");
         }
-        if (txn.from == null || txn.from.length < ADDRESS_LENGTH_CHECK || IsValidAddress(txn.from) == false) {
+        if (txn.from == null || txn.from.length < ADDRESS_LENGTH_CHECK || await IsValidAddress(txn.from) == false) {
             throw new Error("invalid fromAddress");
         }
-        if (txn.to != null &&  (txn.to.length < ADDRESS_LENGTH_CHECK || IsValidAddress(txn.to) == false)) {
+        if (txn.to != null &&  (txn.to.length < ADDRESS_LENGTH_CHECK || await IsValidAddress(txn.to) == false)) {
             throw new Error("invalid toAddress");
         }
 
@@ -166,48 +172,31 @@ async function getTransactionDetails(scanApiDomain, address, pageIndex, isPendin
     return transactionListDetails;
 }
 
-async function postTransaction(txnApiDomain, txnData) {
-    let url = HTTPS;
-    if(txnApiDomain.startsWith("localhost:")) {
-        url = HTTP;
-    }
-    url = url + txnApiDomain + "/transactions";
-    if (txnData == null) {
-        throw new Error("invalid txnData");
-    }
-
-    let txnDataJson = JSON.stringify({ txnData: txnData });
-
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }, 
-        body: txnDataJson
-    });
-
-    if (response === null) {
-        throw new Error(langJson.errors.invalidApiResponse);
-    }
-
-    if(response.status === 400) {
-        let body = await response.text();
-
-        if (response.statusText === null) {
-            throw new Error(langJson.errors.lowGasError + " " + body);
-        } else {
-            throw new Error(langJson.errors.lowGasError + " " + response.statusText + " " + body);
+async function getTransactionStatusByHash(scanApiDomain, address, txHash) {
+    if (!txHash || !address) return { status: 'unknown' };
+    try {
+        const pending = await getTransactionDetails(scanApiDomain, address, 0, true);
+        if (pending && pending.transactionList) {
+            for (let i = 0; i < pending.transactionList.length; i++) {
+                if (pending.transactionList[i].hash === txHash) return { status: 'pending' };
+            }
         }
+        const completed = await getTransactionDetails(scanApiDomain, address, 0, false);
+        if (completed && completed.transactionList) {
+            for (let i = 0; i < completed.transactionList.length; i++) {
+                const t = completed.transactionList[i];
+                if (t.hash === txHash) return { status: t.status ? 'succeeded' : 'failed' };
+            }
+        }
+    } catch (e) {
+        return { status: 'unknown', error: (e && e.message) ? e.message : String(e) };
     }
-
-    if (response.status == 200 || response.status == 204) {
-        return true;
-    }
-
-    return false;
+    return { status: 'unknown' };
 }
 
 async function listAccountTokens(scanApiDomain, address, pageIndex) {
     let url = HTTPS;
-    if(scanApiDomain.startsWith("localhost:")) {
+    if(isHttpAllowedDomain(scanApiDomain)) {
         url = HTTP;
     }
     url = url + scanApiDomain + "/account/" + address + "/tokens/" + pageIndex;
@@ -256,7 +245,7 @@ async function listAccountTokens(scanApiDomain, address, pageIndex) {
         let tokenName = "";
         let tokenSymbol = "";
 
-        if (token.contractAddress == null || token.contractAddress.length < ADDRESS_LENGTH_CHECK || IsValidAddress(token.contractAddress) === false) {
+        if (token.contractAddress == null || token.contractAddress.length < ADDRESS_LENGTH_CHECK || await IsValidAddress(token.contractAddress) === false) {
             throw new Error("invalid contractAddress");
         }
 

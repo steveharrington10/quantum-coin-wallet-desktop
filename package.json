@@ -1,116 +1,91 @@
 {
   "name": "quantumwallet",
   "productName": "quantumwallet",
-  "version": "3.1.12",
+  "version": "3.1.13",
   "description": "Quantum Coin",
   "main": "src/index.js",
   "scripts": {
-    "start": "electron-forge start",
-    "package": "electron-forge package",
-    "make": "electron-forge make",
-    "publish": "electron-forge publish",
-    "lint": "echo \"No linting configured\""
+    "start": "electron .",
+    "dist": "electron-builder",
+    "publish": "electron-builder --publish always",
+    "lint": "eslint src",
+    "build-icons": "node scripts/build-icons.js",
+    "build-mac": "electron-builder --mac",
+    "build-win": "electron-builder --win"
   },
   "author": "Quantum Coin Community",
   "license": "MIT",
   "dependencies": {
-    "@electron-forge/maker-dmg": "^6.1.1",
     "electron-squirrel-startup": "^1.0.0",
-    "ethers": "^6.11.1",
+    "quantumcoin": "^7.0.9",
+    "quantumswap": "^0.0.5",
     "sjcl": "^1.0.8"
   },
+  "devDependencies": {
+    "electron": "^41.2.0",
+    "electron-builder": "^26.8.1",
+    "eslint": "^9.0.0"
+  },
+  "engines": {
+    "node": ">=24.14.1",
+    "npm": ">=11.12.1"
+  },
   "build": {
-    "extraResources": [
-      "assets/**",
-      "theme/**",
+    "appId": "com.quantumcoin.wallet",
+    "productName": "QuantumCoinWallet",
+    "asar": true,
+    "files": [
+      "src/**",
       "js/**",
       "lib/**",
-      "**"
+      "assets/**"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64", "ia32"]
+        }
+      ],
+      "icon": "src/assets/icons/app/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": true
+    },
+    "mac": {
+      "category": "public.app-category.finance",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64","arm64"]
+        }
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "icon": "build/icon-trans.icns"
+    },
+    "dmg": {
+      "artifactName": "${productName}-${version}-${arch}.dmg",
+      "icon": "build/icon-trans.icns",
+      "sign": false
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "repo": "quantumswap-wallet-desktop",
+        "releaseType": "release"
+      }
     ]
   },
-  "files": [
-    "js/**"
-  ],
-  "mac": {
-    "target": {
-      "target": "default",
-      "arch": "universal"
-    },
-    "win": {
-      "target": "nsis",
-      "icon": "src/assets/icons/app/icon.ico",
-      "appId": "Quantum Coin Wallet"
-    }
-  },
-  "devDependencies": {
-    "@electron-forge/cli": "^6.4.2",
-    "@electron-forge/maker-deb": "^6.0.5",
-    "@electron-forge/maker-rpm": "^6.0.5",
-    "@electron-forge/maker-squirrel": "^6.0.5",
-    "@electron-forge/maker-zip": "^6.0.5",
-    "electron": "^40.4.1"
-  },
   "overrides": {
-    "tar": "^7.5.11",
-    "yauzl": "^3.2.1",
-    "@tootallnate/once": "^3.0.1",
-    "rimraf": "^5.0.0",
-    "glob": "^13.0.0"
-  },
-  "config": {
-    "forge": {
-      "packagerConfig": {
-        "icon": "src/assets/icons/app/icon.ico",
-        "out": "dist",
-        "osxUniversal": {
-          "x64ArchFiles": "*"
-        }
-      },
-      "makers": [
-        {
-          "name": "@electron-forge/maker-squirrel",
-          "config": {
-            "name": "quantumwallet",
-            "iconUrl": "https://dogeprotocol.org/img/icon.ico",
-            "setupIcon": "src/assets/icons/app/icon.ico",
-            "loadingGif": "src/assets/icons/loading.gif"
-          }
-        },
-        {
-          "name": "@electron-forge/maker-dmg",
-          "config": {
-            "name": "quantumwallet",
-            "icon": "src/assets/icons/app/icon.icns"
-          }
-        },
-        {
-          "name": "@electron-forge/maker-zip",
-          "platforms": [
-            "darwin"
-          ],
-          "config": {
-            "options": {
-              "icon": "src/assets/icons/app/icon.png"
-            }
-          }
-        },
-        {
-          "name": "@electron-forge/maker-deb",
-          "config": {
-            "options": {
-              "icon": "src/assets/icons/app/icon.png"
-            }
-          }
-        },
-        {
-          "name": "@electron-forge/maker-rpm",
-          "config": {
-            "options": {
-              "icon": "src/assets/icons/app/icon.png"
-            }
-          }
-        }
-      ]
-    }
+    "rimraf": "^5.0.5",
+    "glob": "^13.0.6",
+    "tar": "^7.0.0",
+    "boolean": "^3.2.1"
   }
 }
