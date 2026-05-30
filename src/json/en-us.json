@@ -23,11 +23,11 @@
       },
       {
         "title": "Email Safety",
-        "desc": "Do not reply to or open attachments, links or images in emails that talks about Quantum Coin, QuantumSwap, tokens or wallets. They are most likely scams that can result in your coins and tokens getting stolen!"
+        "desc": "Do not reply to or open attachments, links or images in emails that talks about Quantum Coin, tokens or wallets. They are most likely scams that can result in your coins and tokens getting stolen!"
       },
       {
         "title": "Social Media and Messaging Apps Safety",
-        "desc": "Do not respond to social media and messaging app direct-messages from community members or anyone in general talking about Quantum Coin or QuantumSwap. They are most likely scammers who can trick you and steal your coins or tokens!"
+        "desc": "Do not respond to social media and messaging app direct-messages from community members or anyone in general talking about Quantum Coin. They are most likely scammers who can trick you and steal your coins or tokens!"
       },
       {
         "title": "Wallet Location",
@@ -76,7 +76,7 @@
     }
   ],
     "langValues": {
-      "title": "QuantumSwap",
+      "title": "Quantum Coin (Q)",
       "next": "Next",
       "ok": "Ok",
       "cancel": "Cancel",

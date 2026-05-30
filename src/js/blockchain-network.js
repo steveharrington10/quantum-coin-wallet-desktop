@@ -278,7 +278,7 @@ async function blockchainNetworksList() {
         let key = BLOCKCHAIN_NETWORK_KEY_PREFIX + i.toString();
         let networkJson = await storageGetItem(key);
         if (networkJson == null || networkJson === "") {
-            console.warn("quantumswapwallet: missing network storage entry " + key);
+            console.warn("quantumcoinwallet: missing network storage entry " + key);
             continue;
         }
         let networkItem = JSON.parse(networkJson);
