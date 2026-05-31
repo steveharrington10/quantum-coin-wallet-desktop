@@ -119,7 +119,7 @@ async function storageCreateMainKey(passphrase) {
         throw new Error('storageCreateMainKey storageSetItem DERIVED_KEY_SALT failed.');
     }
 
-    let mainKeyArray = cryptoNewAesKey();
+    let mainKeyArray = await cryptoNewAesKey();
     let mainKeyBase64 = bytesToBase64(mainKeyArray);
     let derivedKeyArray = base64ToBytes(derivedKey.key);
 

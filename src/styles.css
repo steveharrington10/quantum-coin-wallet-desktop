@@ -337,6 +337,21 @@ button, input[type="submit"], input[type="reset"] {
         background-size: 30px 30px;
     }
 
+.copy-container-small {
+    width: 15px;
+    height: 15px;
+    background-size: 15px 15px;
+}
+
+.copy-container-small:hover,
+.copy-container-small:focus {
+    background-size: 15px 15px;
+}
+
+.copy-container-small:active {
+    background-size: 15px 15px;
+}
+
 .refresh-container {
     width: 30px;
     height: 30px;
@@ -1289,10 +1304,15 @@ select {
     color: #372339;
 }
 
-    .buttonBox:hover,
-    .buttonBox:active {
-        color: #6610f2;
-    }
+.button-swap {
+    background: #7C3AED !important;
+    box-shadow: 5px 5px 7px rgba(0, 0, 0, 0.3);
+}
+
+.buttonBox:hover,
+.buttonBox:active {
+    color: #6610f2;
+}
 
 .tabbutton {
     flex: 1;
