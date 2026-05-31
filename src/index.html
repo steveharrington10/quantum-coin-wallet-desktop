@@ -1385,6 +1385,10 @@
                 </div>
 
                 <div class="center-content-rounded-container" id="divAccountTokens" style="display: none">
+                    <div id="divTokenTabs" style="display:none; text-align:center; margin-bottom:8px;">
+                        <button type="button" id="btnTokensRecognized" data-lang-key="tokens-tab" onclick="return selectTokenTab(false);" style="cursor:pointer; border:none; background:none; padding:6px 12px; font-weight:700; border-bottom:2px solid green;">Tokens</button>
+                        <button type="button" id="btnTokensUnrecognized" data-lang-key="unrecognized-tokens-tab" onclick="return selectTokenTab(true);" style="cursor:pointer; border:none; background:none; padding:6px 12px; font-weight:400; border-bottom:2px solid transparent;">Unrecognized Tokens</button>
+                    </div>
                     <div class="roundex-box-small boxeffect scrollbar" id="divMainScreenTokens" style="overflow-y: auto;overflow-x: auto;max-height: 295px;text-align: left;">
                         <table class="styled-table">
                             <thead>
@@ -1417,6 +1421,10 @@
                         <div class="heading bold" data-lang-key="send">Send</div>
                         <div class="divider"></div>
                         <div class="input_container" id="divTokenList">
+                            <div id="divSendShowUnrecognized" style="display:none; text-align:left; margin-bottom:8px;">
+                                <input type="checkbox" id="chkSendShowUnrecognized" onchange="onToggleSendUnrecognized();">
+                                <label for="chkSendShowUnrecognized" data-lang-key="show-unrecognized-tokens" style="cursor: pointer; color:black;">Show unrecognized tokens</label>
+                            </div>
                             <div class="selectwrapper">
                                 <select id="ddlCoinTokenToSend" class="selectbox" tabindex="301" onchange="updateInfoSendScreen();">
                                     <option value="Q">Q</option>
@@ -1462,7 +1470,6 @@
                             <div class="divider"></div>
                         </div>
                         <div class="input_container">
-                            <div class="heading medium" data-lang-key="enter-wallet-password">Enter Wallet Password</div>
                             <div style="width:100%;">
                                 <div style="float: left; width: 80%;">
                                     <input class="tab-name"
@@ -2451,6 +2458,7 @@
     <script src="js/bridge.js"></script>
     <script src="js/crypto.js"></script>
     <script src="js/wallet.js"></script>
+    <script src="js/tokenfilter.js"></script>
     <script src="js/blockchain-network.js"></script>
     <script src="js/dialog.js"></script>
     <script src="js/app.js"></script>

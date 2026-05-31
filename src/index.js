@@ -237,10 +237,20 @@ ipcMain.handle('WalletDecryptJson', async (event, data) => {
     const wallet = Wallet.fromEncryptedJsonSync(data.json, data.passphrase);
     const privBytes = wallet.signingKey.privateKeyBytes;
     const pubBytes = wallet.signingKey.publicKeyBytes;
+
+    // The SDK exposes the original seed (hex) when the wallet file contains one.
+    // Store it as base64-of-raw-bytes to match the desktop's seed format (getSeedArray uses base64ToBytes).
+    let seedBase64 = null;
+    if (typeof wallet.seed === "string" && wallet.seed.length > 0) {
+        const seedHex = wallet.seed.startsWith("0x") ? wallet.seed.slice(2) : wallet.seed;
+        seedBase64 = bytesToBase64(new Uint8Array(Buffer.from(seedHex, "hex")));
+    }
+
     return {
         address: wallet.address,
         privateKey: bytesToBase64(privBytes),
-        publicKey: bytesToBase64(pubBytes)
+        publicKey: bytesToBase64(pubBytes),
+        seed: seedBase64
     };
 })
 

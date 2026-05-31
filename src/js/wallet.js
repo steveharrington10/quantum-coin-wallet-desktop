@@ -104,7 +104,7 @@ async function walletCreateNewWalletFromJson(walletJsonString, passphrase) {
         throw new Error('walletCreateNewWalletFromJson walletDecryptJson failed');
     }
 
-    let wallet = new Wallet(result.address, result.privateKey, result.publicKey, null);
+    let wallet = new Wallet(result.address, result.privateKey, result.publicKey, result.seed || null);
     return wallet;
 }
 

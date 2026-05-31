@@ -1,6 +1,8 @@
 const COIN_SEND_GAS = 21000;
 const TOKEN_SEND_GAS = 84000;
 
+let sendShowUnrecognizedTokens = false;
+
 function resetTokenList() {
     let ddlCoinTokenToSend = document.getElementById("ddlCoinTokenToSend");
     removeOptions(ddlCoinTokenToSend);
@@ -16,29 +18,82 @@ function resetTokenList() {
     }
 }
 
+function addTokenOptionToSendDropdown(ddlCoinTokenToSend, token) {
+    let tokenName = token.name;
+
+    if (tokenName.length > maxTokenNameLength) {
+        tokenName = tokenName.substring(0, maxTokenNameLength - 1) + "...";
+    }
+    tokenName = htmlEncode(tokenName);
+
+    let tokenOption = document.createElement("option");
+    tokenOption.text = tokenName;
+    tokenOption.value = token.contractAddress;
+    ddlCoinTokenToSend.add(tokenOption);
+}
+
 function populateSendScreen() {
     resetTokenList();
-    if (offlineSignEnabled === true) {
-        return;
-    }
-    if(currentWalletTokenList == null) {
-        return;
-    }
+
     let ddlCoinTokenToSend = document.getElementById("ddlCoinTokenToSend");
 
-    for (var i = 0; i < currentWalletTokenList.length; i++) {
-        let token = currentWalletTokenList[i];
-        let tokenName = token.name;
-
-        if (tokenName.length > maxTokenNameLength) {
-            tokenName = tokenName.substring(0, maxTokenNameLength - 1) + "...";
+    //Recognized tokens are always listed; unrecognized only when the toggle is on.
+    //Stablecoin impersonators are already removed upstream so they never appear here.
+    if (currentWalletRecognizedTokens != null) {
+        for (var i = 0; i < currentWalletRecognizedTokens.length; i++) {
+            addTokenOptionToSendDropdown(ddlCoinTokenToSend, currentWalletRecognizedTokens[i]);
         }
-        tokenName = htmlEncode(tokenName);
+    }
 
-        let tokenOption = document.createElement("option");
-        tokenOption.text = tokenName;
-        tokenOption.value = token.contractAddress;
-        ddlCoinTokenToSend.add(tokenOption);
+    if (sendShowUnrecognizedTokens === true && currentWalletUnrecognizedTokens != null) {
+        for (var j = 0; j < currentWalletUnrecognizedTokens.length; j++) {
+            addTokenOptionToSendDropdown(ddlCoinTokenToSend, currentWalletUnrecognizedTokens[j]);
+        }
+    }
+
+    //The toggle is only shown when there are unrecognized tokens to reveal.
+    let toggleRow = document.getElementById("divSendShowUnrecognized");
+    if (currentWalletUnrecognizedTokens != null && currentWalletUnrecognizedTokens.length > 0) {
+        toggleRow.style.display = '';
+    } else {
+        toggleRow.style.display = 'none';
+    }
+}
+
+function onToggleSendUnrecognized() {
+    sendShowUnrecognizedTokens = document.getElementById("chkSendShowUnrecognized").checked === true;
+    populateSendScreen();
+    updateInfoSendScreen();
+}
+
+// Re-sync the send dropdown/toggle when the token list loads (or refreshes)
+// while the send screen is already open, so the unrecognized-tokens checkbox
+// appears as soon as the data arrives. The current selection is preserved.
+function syncSendScreenTokenList() {
+    let sendScreen = document.getElementById("SendScreen");
+    if (sendScreen == null || sendScreen.style.display === "none") {
+        return;
+    }
+
+    let ddlCoinTokenToSend = document.getElementById("ddlCoinTokenToSend");
+    let previousValue = ddlCoinTokenToSend.value;
+    let previousContractInput = document.getElementById("txtTokenContractAddress").value;
+
+    populateSendScreen();
+
+    for (let i = 0; i < ddlCoinTokenToSend.options.length; i++) {
+        if (ddlCoinTokenToSend.options[i].value === previousValue) {
+            ddlCoinTokenToSend.value = previousValue;
+            break;
+        }
+    }
+
+    updateInfoSendScreen();
+
+    //Preserve a manually-typed token contract (offline "(token)" entry) that
+    //updateInfoSendScreen clears when re-selecting the manual option.
+    if (previousValue === "other") {
+        document.getElementById("txtTokenContractAddress").value = previousContractInput;
     }
 }
 
@@ -66,8 +121,18 @@ async function updateInfoSendScreen() {
         }
     } else {
         if(offlineSignEnabled === true) {
-            document.getElementById("txtTokenContractAddress").style.display = "";
+            let txtContract = document.getElementById("txtTokenContractAddress");
             document.getElementById("divCoinTokenToSend").style.display = "none";
+            txtContract.style.display = "";
+            if (selectedValue === "other") {
+                //Manual entry: let the user type the contract address.
+                txtContract.value = "";
+                txtContract.readOnly = false;
+            } else {
+                //A real token was picked from the list; use its contract address.
+                txtContract.value = selectedValue;
+                txtContract.readOnly = true;
+            }
         } else {
             for (let i = 0; i < currentWalletTokenList.length; i++) {
                 if (currentWalletTokenList[i].contractAddress === selectedValue) {
@@ -84,6 +149,9 @@ async function updateInfoSendScreen() {
 
 async function showSendScreen() {
     offlineSignEnabled = await offlineTxnSigningGetDefaultValue();
+    sendShowUnrecognizedTokens = false;
+    document.getElementById("chkSendShowUnrecognized").checked = false;
+    document.getElementById("txtTokenContractAddress").readOnly = false;
     let ddlCoinTokenToSend = document.getElementById("ddlCoinTokenToSend");
     ddlCoinTokenToSend.disabled = true;
     populateSendScreen();

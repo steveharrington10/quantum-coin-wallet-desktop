@@ -94,6 +94,9 @@ let autoCompleteBoxes = [];
 let autoCompleteBoxesRestore = [];
 let isFirstTimeAccountRefresh = true;
 let currentWalletTokenList = [];
+let currentWalletRecognizedTokens = [];
+let currentWalletUnrecognizedTokens = [];
+let showingUnrecognizedTokens = false;
 let currentAccountDetails = null;
 let offlineSignEnabled = false;
 
@@ -840,6 +843,7 @@ async function showWalletScreen() {
     tempPassword = "";
     revealSeedArray = null;
     currentBalance = "";
+    showingUnrecognizedTokens = false;
 
     document.getElementById('login-content').style.display = 'none';
     document.getElementById('settings-content').style.display = 'none';
@@ -1406,7 +1410,10 @@ async function refreshAccountBalance() {
         isRefreshingBalance = true;
 
         currentWalletTokenList = [];
+        currentWalletRecognizedTokens = [];
+        currentWalletUnrecognizedTokens = [];
         document.getElementById('divAccountTokens').style.display = 'none';
+        document.getElementById('divTokenTabs').style.display = 'none';
         document.getElementById('tbodyAccountTokens').innerHTML = '';
         document.getElementById("divRefreshBalance").style.display = "none";
         document.getElementById("divLoadingBalance").style.display = "block";
@@ -1440,22 +1447,14 @@ async function refreshAccountBalance() {
     }
 }
 
-async function refreshTokenList() {
-    //refresh token list/balance
-    let tokenListDetails = await listAccountTokens(currentBlockchainNetwork.scanApiDomain, currentWalletAddress, 1); //todo: pagination
-    if (tokenListDetails == null || tokenListDetails.tokenList == null || tokenListDetails.tokenList.length === 0) {
-        return;
+function buildTokenRowsHtml(tokenList) {
+    let tbody = "";
+    if (tokenList == null) {
+        return tbody;
     }
 
-    let tbody = "";
-    let filteredTokenList = [];
-
-    for (var i = 0; i < tokenListDetails.tokenList.length; i++) {
-        let token = tokenListDetails.tokenList[i];
-        if (htmlEncode(token.name) !== token.name || htmlEncode(token.symbol) !== token.symbol) {
-            continue;
-        }
-        filteredTokenList.push(token);
+    for (var i = 0; i < tokenList.length; i++) {
+        let token = tokenList[i];
         let tokenRow = tokenListRowTemplate;
         let tokenName = token.name;
         let tokenSymbol = token.symbol;
@@ -1484,9 +1483,91 @@ async function refreshTokenList() {
         tbody = tbody + tokenRow;
     }
 
-    document.getElementById('tbodyAccountTokens').innerHTML = tbody;
+    return tbody;
+}
+
+function setTokenTabActiveStyles() {
+    let recognizedBtn = document.getElementById('btnTokensRecognized');
+    let unrecognizedBtn = document.getElementById('btnTokensUnrecognized');
+    if (recognizedBtn == null || unrecognizedBtn == null) {
+        return;
+    }
+    if (showingUnrecognizedTokens === true) {
+        recognizedBtn.style.fontWeight = '400';
+        recognizedBtn.style.borderBottom = '2px solid transparent';
+        unrecognizedBtn.style.fontWeight = '700';
+        unrecognizedBtn.style.borderBottom = '2px solid green';
+    } else {
+        recognizedBtn.style.fontWeight = '700';
+        recognizedBtn.style.borderBottom = '2px solid green';
+        unrecognizedBtn.style.fontWeight = '400';
+        unrecognizedBtn.style.borderBottom = '2px solid transparent';
+    }
+}
+
+function renderHomeTokenTab() {
+    let unionEmpty = currentWalletRecognizedTokens.length === 0 && currentWalletUnrecognizedTokens.length === 0;
+
+    if (unionEmpty === true) {
+        document.getElementById('tbodyAccountTokens').innerHTML = "";
+        document.getElementById('divTokenTabs').style.display = 'none';
+        document.getElementById('divAccountTokens').style.display = 'none';
+        return;
+    }
+
+    //Auto-switch to the non-empty tab so the user always sees content.
+    if (showingUnrecognizedTokens === true && currentWalletUnrecognizedTokens.length === 0 && currentWalletRecognizedTokens.length !== 0) {
+        showingUnrecognizedTokens = false;
+    } else if (showingUnrecognizedTokens === false && currentWalletRecognizedTokens.length === 0 && currentWalletUnrecognizedTokens.length !== 0) {
+        showingUnrecognizedTokens = true;
+    }
+
+    let activeList = showingUnrecognizedTokens === true ? currentWalletUnrecognizedTokens : currentWalletRecognizedTokens;
+    document.getElementById('tbodyAccountTokens').innerHTML = buildTokenRowsHtml(activeList);
+    document.getElementById('divTokenTabs').style.display = '';
     document.getElementById('divAccountTokens').style.display = '';
-    currentWalletTokenList = filteredTokenList;
+    setTokenTabActiveStyles();
+}
+
+function selectTokenTab(showUnrecognized) {
+    showingUnrecognizedTokens = showUnrecognized === true;
+    renderHomeTokenTab();
+    return false;
+}
+
+async function refreshTokenList() {
+    //refresh token list/balance
+    let tokenListDetails = await listAccountTokens(currentBlockchainNetwork.scanApiDomain, currentWalletAddress, 1); //todo: pagination
+    if (tokenListDetails == null || tokenListDetails.tokenList == null || tokenListDetails.tokenList.length === 0) {
+        syncSendScreenTokenList();
+        return;
+    }
+
+    let safeTokenList = [];
+    for (var i = 0; i < tokenListDetails.tokenList.length; i++) {
+        let token = tokenListDetails.tokenList[i];
+        if (htmlEncode(token.name) !== token.name || htmlEncode(token.symbol) !== token.symbol) {
+            continue;
+        }
+        safeTokenList.push(token);
+    }
+
+    //Hard-suppress stablecoin impersonators (recognized contracts bypass), then partition.
+    let impersonatorFilteredList = filterStablecoinImpersonators(safeTokenList);
+    currentWalletRecognizedTokens = [];
+    currentWalletUnrecognizedTokens = [];
+    for (var j = 0; j < impersonatorFilteredList.length; j++) {
+        let token = impersonatorFilteredList[j];
+        if (isRecognizedToken(token.contractAddress) === true) {
+            currentWalletRecognizedTokens.push(token);
+        } else {
+            currentWalletUnrecognizedTokens.push(token);
+        }
+    }
+
+    currentWalletTokenList = currentWalletRecognizedTokens.concat(currentWalletUnrecognizedTokens);
+    renderHomeTokenTab();
+    syncSendScreenTokenList();
 }
 
 async function initRefreshAccountBalanceBackground() {
@@ -1505,6 +1586,8 @@ async function refreshAccountBalanceBackground() {
         }
         isRefreshingBalance = true;
         currentWalletTokenList = [];
+        currentWalletRecognizedTokens = [];
+        currentWalletUnrecognizedTokens = [];
         document.getElementById("divRefreshBalance").style.display = "none";
         document.getElementById("divLoadingBalance").style.display = "block";
         currentAccountDetails = null;
