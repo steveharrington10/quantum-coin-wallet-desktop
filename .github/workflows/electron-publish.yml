@@ -26,5 +26,5 @@ jobs:
           
       - name: Build and Publish
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_COIN_TOKEN }}
         run: npm run publish
